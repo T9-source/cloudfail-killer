@@ -10,20 +10,17 @@ Tests verifying IPv6 support across the entire pipeline:
 """
 
 import json
-import tempfile
-from pathlib import Path
 
 import pytest
 
-from cloudkill.core.models import EnrichedResult, ResultStatus, ScanReport
-from cloudkill.sources.base import IPVersion, SourceResult
 from cloudkill.cache.sqlite_cache import SQLiteCache
-from cloudkill.exporters.json_export import export_json, export_json_string
+from cloudkill.core.models import EnrichedResult, ResultStatus, ScanReport
 from cloudkill.exporters.csv_export import export_csv, export_ip_list
+from cloudkill.exporters.json_export import export_json
 from cloudkill.exporters.markdown_export import export_markdown
 from cloudkill.exporters.nuclei import export_nuclei_template
 from cloudkill.exporters.pdf_export import export_pdf
-
+from cloudkill.sources.base import IPVersion, SourceResult
 
 # ═══════════════════════════════════════════════════════════
 # IPv6 SOURCE RESULT TESTS

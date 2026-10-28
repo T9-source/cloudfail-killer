@@ -21,23 +21,13 @@ from typing import Any
 
 import httpx
 
-from cloudkill.config import Config, StealthMode
+from cloudkill.config import Config
+from cloudkill.utils.useragents import USER_AGENTS
+
+# Non-crypto use (jitter/UA rotation) but seeded from OS entropy anyway
+_system_random = random.SystemRandom()
 
 logger = logging.getLogger(__name__)
-
-# Curated list of modern User-Agent strings for rotation
-USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0",
-    "Mozilla/5.0 (X11; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 OPR/116.0.0.0",
-]
 
 # Status codes that should trigger a retry
 RETRYABLE_STATUS_CODES = {408, 429, 500, 502, 503, 504}
@@ -105,7 +95,7 @@ class AsyncEngine:
 
     def _get_headers(self) -> dict[str, str]:
         """Generate headers with random User-Agent."""
-        ua = random.choice(USER_AGENTS)
+        ua = _system_random.choice(USER_AGENTS)
         headers = {
             "User-Agent": ua,
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -181,7 +171,7 @@ class AsyncEngine:
             if elapsed < min_interval:
                 wait_time = min_interval - elapsed
                 # Add small random jitter (0-20%)
-                jitter = random.uniform(0, wait_time * 0.2)
+                jitter = _system_random.uniform(0, wait_time * 0.2)
                 await asyncio.sleep(wait_time + jitter)
 
         self._last_request_time[source] = time.monotonic()
@@ -232,7 +222,7 @@ class AsyncEngine:
                 # Check if response is retryable
                 if response.status_code in RETRYABLE_STATUS_CODES and attempt < retries:
                     self.stats.retries += 1
-                    backoff = min(2 ** attempt + random.uniform(0, 1), 30)
+                    backoff = min(2 ** attempt + _system_random.uniform(0, 1), 30)
                     logger.debug(
                         "Retry %d/%d for %s (status=%d, backoff=%.1fs)",
                         attempt, retries, url, response.status_code, backoff,
@@ -246,7 +236,7 @@ class AsyncEngine:
                 last_exception = e
                 self.stats.record(source, False)
                 if attempt < retries:
-                    backoff = min(2 ** attempt + random.uniform(0, 1), 30)
+                    backoff = min(2 ** attempt + _system_random.uniform(0, 1), 30)
                     logger.debug(
                         "Retry %d/%d for %s (%s, backoff=%.1fs)",
                         attempt, retries, url, e, backoff,
@@ -288,7 +278,7 @@ class AsyncEngine:
 
                 if response.status_code in RETRYABLE_STATUS_CODES and attempt < retries:
                     self.stats.retries += 1
-                    backoff = min(2 ** attempt + random.uniform(0, 1), 30)
+                    backoff = min(2 ** attempt + _system_random.uniform(0, 1), 30)
                     await asyncio.sleep(backoff)
                     continue
 
@@ -298,7 +288,7 @@ class AsyncEngine:
                 last_exception = e
                 self.stats.record(source, False)
                 if attempt < retries:
-                    backoff = min(2 ** attempt + random.uniform(0, 1), 30)
+                    backoff = min(2 ** attempt + _system_random.uniform(0, 1), 30)
                     await asyncio.sleep(backoff)
                     continue
                 break

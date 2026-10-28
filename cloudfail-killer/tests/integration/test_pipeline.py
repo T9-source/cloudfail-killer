@@ -5,29 +5,23 @@ End-to-end tests verifying the full scan pipeline:
     SourceResult → EnrichedResult → Enrichment → Active Scan → Report → Export
 """
 
-import asyncio
 import json
-import os
-import tempfile
-from datetime import datetime
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from cloudkill.config import Config, ScanProfile, StealthMode
-from cloudkill.core.models import EnrichedResult, ResultStatus, ScanReport
-from cloudkill.sources.base import BaseSource, IPVersion, SourceResult
-from cloudkill.core.filters import FalsePositiveFilter
-from cloudkill.enrichers.scoring import ScoringEngine, ResultDeduplicator
 from cloudkill.cache.sqlite_cache import SQLiteCache
-from cloudkill.exporters.json_export import export_json, export_json_string
-from cloudkill.exporters.csv_export import export_csv, export_ip_list
-from cloudkill.exporters.markdown_export import export_markdown
-from cloudkill.exporters.nuclei import export_nuclei_template, export_nuclei_targets
-from cloudkill.exporters.pdf_export import export_pdf
+from cloudkill.config import Config, StealthMode
+from cloudkill.core.filters import FalsePositiveFilter
+from cloudkill.core.models import EnrichedResult, ResultStatus, ScanReport
 from cloudkill.core.webhooks import WebhookSender, WebhookType
-
+from cloudkill.enrichers.scoring import ResultDeduplicator, ScoringEngine
+from cloudkill.exporters.csv_export import export_csv, export_ip_list
+from cloudkill.exporters.json_export import export_json, export_json_string
+from cloudkill.exporters.markdown_export import export_markdown
+from cloudkill.exporters.nuclei import export_nuclei_targets, export_nuclei_template
+from cloudkill.exporters.pdf_export import export_pdf
+from cloudkill.sources.base import IPVersion, SourceResult
 
 # ═══════════════════════════════════════════════════════════
 # HELPERS
@@ -530,7 +524,7 @@ class TestConfigProfilesIntegration:
         researcher = Config.from_profile("researcher")
         pentester = Config.from_profile("pentester")
         bugbounty = Config.from_profile("bugbounty")
-        enterprise = Config.from_profile("enterprise")
+        _enterprise = Config.from_profile("enterprise")  # smoke: builds without error
 
         # At least some weights should differ
         assert researcher.scoring_weights.ssl_match != pentester.scoring_weights.ssl_match

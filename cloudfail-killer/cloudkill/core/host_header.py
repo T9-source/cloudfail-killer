@@ -278,7 +278,7 @@ class HostHeaderProbe:
                     result.redirect_location = response.headers.get("location", "")
 
                 # Analyze and score
-                self._analyze_result(result, baseline)
+                self._analyze_result(result, baseline, domain)
 
             except httpx.ConnectError:
                 result.error = "Connection refused"
@@ -295,6 +295,7 @@ class HostHeaderProbe:
         self,
         result: HostHeaderResult,
         baseline: dict[str, Any] | None,
+        domain: str = "",
     ) -> None:
         """Analyze probe result and determine match level."""
         score = 0
@@ -365,7 +366,7 @@ class HostHeaderProbe:
         if result.redirect_location:
             loc = result.redirect_location.lower()
             # Redirect to https version of domain = likely origin
-            if f"https://{result.ip}" in loc or domain in loc:
+            if f"https://{result.ip}" in loc or (domain and domain in loc):
                 score += 5
                 result.match_type = result.match_type or "redirect"
                 reasons.append(f"Redirect to: {result.redirect_location}")

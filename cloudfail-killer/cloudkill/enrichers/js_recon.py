@@ -22,11 +22,9 @@ References:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import re
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
@@ -216,9 +214,7 @@ class JSReconEngine:
         for finding in findings:
             if finding.type in endpoint_types:
                 value = finding.value
-                if value.startswith(("http://", "https://")):
-                    endpoints.add(value)
-                elif value.startswith("/"):
+                if value.startswith(("http://", "https://")) or value.startswith("/"):
                     endpoints.add(value)
         return sorted(endpoints)
 

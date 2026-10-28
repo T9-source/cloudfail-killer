@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, AsyncGenerator
+from collections.abc import AsyncGenerator
 
 from cloudkill.sources.base import BaseSource, IPVersion, SourceResult
 

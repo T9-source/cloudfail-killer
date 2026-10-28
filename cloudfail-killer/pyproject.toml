@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cloudkill"
-version = "0.6.0"
+version = "0.8.0"
 description = "Advanced origin IP discovery tool for Cloudflare-protected domains"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
 authors = [
-    { name = "T9-source" },
+    { name = "smart-jemy" },
 ]
 keywords = ["cloudflare", "origin-ip", "reconnaissance", "security", "bug-bounty", "pentest"]
 classifiers = [
@@ -38,11 +38,11 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/T9-source/cloudfail-killer"
-Documentation = "https://github.com/T9-source/cloudfail-killer#readme"
-Repository = "https://github.com/T9-source/cloudfail-killer"
-Issues = "https://github.com/T9-source/cloudfail-killer/issues"
-Changelog = "https://github.com/T9-source/cloudfail-killer/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/smart-jemy/cloudfail-killer"
+Documentation = "https://github.com/smart-jemy/cloudfail-killer#readme"
+Repository = "https://github.com/smart-jemy/cloudfail-killer"
+Issues = "https://github.com/smart-jemy/cloudfail-killer/issues"
+Changelog = "https://github.com/smart-jemy/cloudfail-killer/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [
@@ -60,8 +60,11 @@ export = [
 pdf = [
     "reportlab>=4.0.0",
 ]
+sign = [
+    "cryptography>=42.0.0",
+]
 all = [
-    "cloudkill[dev,pdf,export]",
+    "cloudkill[dev,pdf,export,sign]",
 ]
 
 [project.scripts]
@@ -76,7 +79,8 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM"]
-ignore = ["E501"]
+# UP042: (str, Enum) kept intentionally for pydantic-settings compatibility
+ignore = ["E501", "UP042"]
 
 [tool.mypy]
 python_version = "3.11"

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, AsyncGenerator
+from collections.abc import AsyncGenerator
 
 from cloudkill.sources.base import BaseSource, IPVersion, SourceResult
 
@@ -130,19 +130,6 @@ class DNSDumpsterSource(BaseSource):
 
                 # Step 3: Parse results
                 text = response.text
-
-                # Extract DNS records from table rows
-                # DNSDumpster displays records in table cells
-                # Pattern: IP addresses in the result tables
-                ip_pattern = re.compile(
-                    r'(?:<td[^>]*>)([^<]*(?:\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|'
-                    r'[0-9a-fA-F:]+:[0-9a-fA-F:]*)[^<]*)(?:</td>)'
-                )
-
-                # Also try extracting from DNS map data (often in CSV format in JS)
-                dns_map_pattern = re.compile(
-                    r'"dns_records"\s*:\s*({[^}]+})'
-                )
 
                 # Extract host-IP pairs from the response
                 row_pattern = re.compile(

@@ -15,7 +15,7 @@ If you discover a security vulnerability in CloudFail-Killer, please report it r
 ### How to Report
 
 1. **Preferred**: Send an email to the project maintainers with the subject `[SECURITY] CloudFail-Killer Vulnerability`
-2. **Alternative**: Create a new [GitHub Security Advisory](https://github.com/T9-source/cloudfail-killer/security/advisories/new)
+2. **Alternative**: Create a new [GitHub Security Advisory](https://github.com/smart-jemy/cloudfail-killer/security/advisories/new)
 
 ### What to Include
 

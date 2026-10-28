@@ -8,29 +8,29 @@ false positive filtering, and deduplication in the correct order.
 Pipeline stages:
     1. SSL Certificate Check (SSLChecker)
     2. ASN / Hosting Provider Lookup (ASNLookup)
-    3. JS Recon Analysis (JSReconEngine)
-    4. Confidence Scoring (ScoringEngine)
-    5. False Positive Filtering (FalsePositiveFilter)
-    6. Deduplication (ResultDeduplicator)
+    3. Shodan InternetDB Origin Verification (InternetDBLookup)
+    4. JS Recon Analysis (JSReconEngine)
+    5. Confidence Scoring (ScoringEngine)
+    6. False Positive Filtering (FalsePositiveFilter)
+    7. Deduplication (ResultDeduplicator)
 
 MITRE ATT&CK: T1595.002 (SSL/TLS Inspection), T1590.001 (DNS)
 """
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any
 
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn
 
 from cloudkill.config import Config
 from cloudkill.core.filters import FalsePositiveFilter
 from cloudkill.core.models import EnrichedResult, ResultStatus
 from cloudkill.enrichers.asn_lookup import ASNLookup
+from cloudkill.enrichers.internetdb import InternetDBLookup
 from cloudkill.enrichers.js_recon import JSReconEngine
 from cloudkill.enrichers.scoring import ResultDeduplicator, ScoringEngine
 from cloudkill.enrichers.ssl_checker import SSLChecker
@@ -49,6 +49,8 @@ class EnrichmentStats:
     asn_hosting_found: int = 0
     js_analyzed: int = 0
     js_findings: int = 0
+    internetdb_lookups: int = 0
+    internetdb_matches: int = 0
     fp_filtered: int = 0
     duplicates_removed: int = 0
     confirmed_count: int = 0
@@ -65,6 +67,8 @@ class EnrichmentStats:
             "asn_hosting_found": self.asn_hosting_found,
             "js_analyzed": self.js_analyzed,
             "js_findings": self.js_findings,
+            "internetdb_lookups": self.internetdb_lookups,
+            "internetdb_matches": self.internetdb_matches,
             "fp_filtered": self.fp_filtered,
             "duplicates_removed": self.duplicates_removed,
             "confirmed_count": self.confirmed_count,
@@ -100,11 +104,13 @@ class EnrichmentPipeline:
         enable_scoring: bool = True,
         enable_fp_filter: bool = True,
         enable_dedup: bool = True,
+        enable_internetdb: bool = False,
     ) -> None:
         self.config = config
         self.enable_ssl = enable_ssl
         self.enable_asn = enable_asn
         self.enable_js = enable_js
+        self.enable_internetdb = enable_internetdb
         self.enable_scoring = enable_scoring
         self.enable_fp_filter = enable_fp_filter
         self.enable_dedup = enable_dedup
@@ -123,6 +129,11 @@ class EnrichmentPipeline:
         self.js_engine = JSReconEngine(
             timeout=config.timeout,
         ) if enable_js else None
+
+        self.internetdb = InternetDBLookup(
+            timeout=10.0,
+            max_concurrent=min(config.effective_threads, 10),
+        ) if enable_internetdb else None
 
         self.scoring_engine = ScoringEngine(config) if enable_scoring else None
         self.fp_filter = FalsePositiveFilter() if enable_fp_filter else None
@@ -161,19 +172,23 @@ class EnrichmentPipeline:
         if self.enable_asn and self.asn_lookup:
             results = await self._stage_asn(results, stats, show_progress)
 
-        # Stage 3: JS Recon Analysis (only if JS URLs are available)
+        # Stage 3: Shodan InternetDB origin verification
+        if self.enable_internetdb and self.internetdb:
+            results = await self._stage_internetdb(results, domain, stats, show_progress)
+
+        # Stage 4: JS Recon Analysis (only if JS URLs are available)
         if self.enable_js and self.js_engine:
             await self._stage_js(results, stats, show_progress)
 
-        # Stage 4: Confidence Scoring
+        # Stage 5: Confidence Scoring
         if self.enable_scoring and self.scoring_engine:
             self._stage_scoring(results, domain, stats)
 
-        # Stage 5: False Positive Filtering
+        # Stage 6: False Positive Filtering
         if self.enable_fp_filter and self.fp_filter:
             results = self._stage_fp_filter(results, stats)
 
-        # Stage 6: Deduplication
+        # Stage 7: Deduplication
         if self.enable_dedup and self.deduplicator:
             before_dedup = len(results)
             results = self.deduplicator.deduplicate(results)
@@ -297,6 +312,55 @@ class EnrichmentPipeline:
 
         return results
 
+    async def _stage_internetdb(
+        self,
+        results: list[EnrichedResult],
+        domain: str,
+        stats: EnrichmentStats,
+        show_progress: bool,
+    ) -> list[EnrichedResult]:
+        """Stage 3: Verify candidate origins via Shodan InternetDB."""
+        unique_ips = list({r.ip for r in results})
+        if not unique_ips:
+            return results
+
+        if show_progress:
+            console.print(f"  [bold]Stage 3:[/bold] Shodan InternetDB Verification ({len(unique_ips)} IPs)")
+
+        stats.internetdb_lookups = len(unique_ips)
+
+        try:
+            infos = await self.internetdb.lookup_batch(unique_ips)
+        except Exception as e:
+            logger.error("InternetDB enrichment stage failed: %s", e)
+            stats.errors.append(f"InternetDB: {e}")
+            return results
+
+        for result in results:
+            info = infos.get(result.ip)
+            if not info or not info.found:
+                continue
+
+            matched = info.domain_hostname_match(domain)
+            if matched:
+                result.internetdb_match = True
+                result.internetdb_hostnames = info.hostnames
+                result.internetdb_open_ports = info.web_ports_open()
+                stats.internetdb_matches += 1
+                if result.raw_source_result is not None:
+                    result.raw_source_result.metadata["internetdb"] = info.to_dict()
+            elif info.web_ports_open():
+                result.internetdb_open_ports = info.web_ports_open()
+                if result.raw_source_result is not None:
+                    result.raw_source_result.metadata["internetdb"] = info.to_dict()
+
+        if show_progress and stats.internetdb_matches:
+            console.print(
+                f"    [green]{stats.internetdb_matches} origin candidates verified via InternetDB hostnames[/green]"
+            )
+
+        return results
+
     async def _stage_js(
         self,
         results: list[EnrichedResult],
@@ -313,13 +377,13 @@ class EnrichmentPipeline:
 
         if not js_urls:
             if show_progress:
-                console.print("  [bold]Stage 3:[/bold] JS Recon (no JS URLs found)")
+                console.print("  [bold]Stage 4:[/bold] JS Recon (no JS URLs found)")
             return results
 
         stats.js_analyzed = len(js_urls)
 
         if show_progress:
-            console.print(f"  [bold]Stage 3:[/bold] JS Recon Analysis ({len(js_urls)} JS files)")
+            console.print(f"  [bold]Stage 4:[/bold] JS Recon Analysis ({len(js_urls)} JS files)")
 
         try:
             import httpx

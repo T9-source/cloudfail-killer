@@ -28,9 +28,8 @@ Scoring algorithm:
 from __future__ import annotations
 
 import logging
-from typing import Any
 
-from cloudkill.config import Config, ScoringWeights
+from cloudkill.config import Config
 from cloudkill.core.models import EnrichedResult, ResultStatus
 
 logger = logging.getLogger(__name__)
@@ -130,6 +129,13 @@ class ScoringEngine:
         if result.acme_configured:
             score += 8  # Fixed bonus for ACME misconfig
             result.confidence_reasons.append("ACME misconfiguration detected (+8)")
+
+        # --- Signal: Shodan InternetDB hostname match ---
+        if result.internetdb_match:
+            score += self.weights.internetdb_match
+            result.confidence_reasons.append(
+                f"InternetDB hostname match (+{self.weights.internetdb_match})"
+            )
 
         # --- Signal: Host Header Match ---
         if result.host_header_match:
@@ -275,9 +281,7 @@ class ResultDeduplicator:
             ip = result.ip
             existing = best.get(ip)
 
-            if existing is None:
-                best[ip] = result
-            elif result.confidence > existing.confidence:
+            if existing is None or result.confidence > existing.confidence:
                 best[ip] = result
             elif result.confidence == existing.confidence:
                 # Tie-break: prefer more enriched data
@@ -287,6 +291,7 @@ class ResultDeduplicator:
                     bool(result.favicon_match),
                     bool(result.js_extracted),
                     bool(result.spf_dkim_origin),
+                    bool(result.internetdb_match),
                 ])
                 old_signals = sum([
                     bool(existing.ssl_matches),
@@ -294,6 +299,7 @@ class ResultDeduplicator:
                     bool(existing.favicon_match),
                     bool(existing.js_extracted),
                     bool(existing.spf_dkim_origin),
+                    bool(existing.internetdb_match),
                 ])
                 if new_signals > old_signals:
                     best[ip] = result

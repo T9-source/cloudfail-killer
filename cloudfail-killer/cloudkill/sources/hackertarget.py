@@ -18,10 +18,10 @@ API: https://api.hackertarget.com/hostsearch/?q=example.com
 from __future__ import annotations
 
 import logging
-from typing import Any, AsyncGenerator
+from collections.abc import AsyncGenerator
 
-from cloudkill.sources.base import BaseSource, IPVersion, SourceResult
 from cloudkill import __version__
+from cloudkill.sources.base import BaseSource, IPVersion, SourceResult
 
 logger = logging.getLogger(__name__)
 

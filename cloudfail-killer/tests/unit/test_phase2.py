@@ -1,34 +1,31 @@
 """Phase 2 unit tests - All 13 source plugins, source registry, favicon, DNS utils."""
 
-import asyncio
 import os
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-import pytest_asyncio
 
-from cloudkill.sources.base import BaseSource, IPVersion, SourceResult
-from cloudkill.sources.crtsh import CRTShSource
-from cloudkill.sources.certspotter import CertSpotterSource
-from cloudkill.sources.anubisdb import AnubisDBSource
-from cloudkill.sources.otx import OTXSource
-from cloudkill.sources.wayback import WaybackSource
-from cloudkill.sources.urlscan import URLScanSource
-from cloudkill.sources.hackertarget import HackerTargetSource
-from cloudkill.sources.dnsdumpster import DNSDumpsterSource
-from cloudkill.sources.whoisxml import WhoisXMLSource
-from cloudkill.sources.github_dork import GitHubDorkSource
-from cloudkill.sources.favicon_hash import FaviconHashSource
-from cloudkill.sources.spf_dkim import SPFDKIMSource
 from cloudkill.sources.acme_check import ACMECheckSource
+from cloudkill.sources.anubisdb import AnubisDBSource
+from cloudkill.sources.base import SourceResult
+from cloudkill.sources.certspotter import CertSpotterSource
+from cloudkill.sources.crtsh import CRTShSource
+from cloudkill.sources.dnsdumpster import DNSDumpsterSource
+from cloudkill.sources.favicon_hash import FaviconHashSource
+from cloudkill.sources.github_dork import GitHubDorkSource
+from cloudkill.sources.hackertarget import HackerTargetSource
+from cloudkill.sources.otx import OTXSource
+from cloudkill.sources.spf_dkim import SPFDKIMSource
+from cloudkill.sources.urlscan import URLScanSource
+from cloudkill.sources.wayback import WaybackSource
+from cloudkill.sources.whoisxml import WhoisXMLSource
+from cloudkill.utils.dns import DNSResult, DualStackResolver
 from cloudkill.utils.favicon import (
+    _mmh3_fallback,
+    censys_search_query,
     compute_favicon_hash,
     shodan_search_query,
-    censys_search_query,
-    _mmh3_fallback,
 )
-from cloudkill.utils.dns import DualStackResolver, DNSResult
-
 
 # ============================================================
 # Source Registry Tests
@@ -39,7 +36,7 @@ class TestSourceRegistry:
     def test_get_all_sources_count(self):
         from cloudkill.sources import get_all_sources
         sources = get_all_sources()
-        assert len(sources) == 13, f"Expected 13 sources, got {len(sources)}"
+        assert len(sources) == 15, f"Expected 15 sources, got {len(sources)}"
 
     def test_get_all_sources_types(self):
         from cloudkill.sources import get_all_sources
@@ -49,13 +46,14 @@ class TestSourceRegistry:
             "crtsh", "certspotter", "anubisdb", "otx", "wayback",
             "urlscan", "hackertarget", "dnsdumpster", "whoisxml",
             "github_dork", "favicon_hash", "spf_dkim", "acme_check",
+            "rapiddns", "subdomain_center",
         }
         assert names == expected, f"Missing sources: {expected - names}"
 
     def test_get_source_info(self):
         from cloudkill.sources import get_source_info
         info = get_source_info()
-        assert len(info) == 13
+        assert len(info) == 15
         for item in info:
             assert "name" in item
             assert "description" in item
@@ -154,7 +152,6 @@ class TestCertSpotterSource:
         assert src.default_enabled is False
 
     def test_not_configured_without_key(self):
-        src = CertSpotterSource()
         with patch.dict(os.environ, {}, clear=True):
             src2 = CertSpotterSource()
             assert src2.is_configured() is False
@@ -345,7 +342,9 @@ class TestGitHubDorkSource:
     def test_source_metadata(self):
         src = GitHubDorkSource()
         assert src.name == "github_dork"
-        assert src.requires_api_key is False
+        # GitHub code search requires authentication (401 otherwise)
+        assert src.requires_api_key is True
+        assert src.is_configured() is False
 
     def test_is_private_ip(self):
         assert GitHubDorkSource._is_private_ip("10.0.0.1") is True
@@ -417,7 +416,7 @@ class TestFaviconHash:
 
     def test_shodan_query(self):
         query = shodan_search_query("-1234567890")
-        assert "http.favicon.hash:-1234567890" == query
+        assert query == "http.favicon.hash:-1234567890"
 
     def test_censys_query(self):
         query = censys_search_query("-1234567890")

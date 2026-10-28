@@ -360,7 +360,7 @@ class ActiveScanner:
                 else:
                     result.service = "unknown"
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 result.response_time_ms = self.timeout * 1000
             except ConnectionRefusedError:
                 result.error_message = "Connection refused"
@@ -402,10 +402,10 @@ class ActiveScanner:
 
         # Server header match
         baseline_server = baseline.get("server_header", "")
-        if result.server_header and baseline_server:
-            if result.server_header.lower() == baseline_server.lower():
-                score += 10
-                reasons.append(f"Server header matches: {result.server_header}")
+        if (result.server_header and baseline_server
+                and result.server_header.lower() == baseline_server.lower()):
+            score += 10
+            reasons.append(f"Server header matches: {result.server_header}")
 
         # Same status code
         baseline_status = baseline.get("status_code")
@@ -423,10 +423,10 @@ class ActiveScanner:
 
         # Content hash match
         baseline_hash = baseline.get("content_hash", "")
-        if result.content_hash and baseline_hash:
-            if result.content_hash == baseline_hash:
-                score += 20
-                reasons.append("Page content hash matches")
+        if (result.content_hash and baseline_hash
+                and result.content_hash == baseline_hash):
+            score += 20
+            reasons.append("Page content hash matches")
 
         # Successful response (not error)
         if result.status_code and 200 <= result.status_code < 400:

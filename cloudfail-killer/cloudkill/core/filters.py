@@ -16,7 +16,7 @@ from __future__ import annotations
 import ipaddress
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from cloudkill.core.models import EnrichedResult
 

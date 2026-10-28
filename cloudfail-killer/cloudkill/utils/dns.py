@@ -253,7 +253,7 @@ class DualStackResolver:
         try:
             results_list = await asyncio.gather(*task_coros, return_exceptions=True)
 
-            for name, res in zip(task_names, results_list):
+            for name, res in zip(task_names, results_list, strict=False):
                 if isinstance(res, Exception):
                     result.errors.append(f"{name.upper()} query failed: {res}")
                     continue

@@ -24,10 +24,11 @@ for misconfigurations that may indicate direct origin accessibility.
 from __future__ import annotations
 
 import logging
-from typing import Any, AsyncGenerator
+from collections.abc import AsyncGenerator
+from typing import Any
 
-from cloudkill.sources.base import BaseSource, IPVersion, SourceResult
 from cloudkill import __version__
+from cloudkill.sources.base import BaseSource, IPVersion, SourceResult
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +117,6 @@ class ACMECheckSource(BaseSource):
 
                         # Check if this request bypassed Cloudflare
                         cf_ray = response.headers.get("cf-ray", "")
-                        cf_visitor = response.headers.get("cf-visitor", "")
 
                         is_bypassed = (
                             response.status_code in (200, 404, 403, 503)

@@ -7,7 +7,7 @@ Unified data models for scan results, enriched results, and scan reports.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 
 from cloudkill.sources.base import IPVersion, SourceResult
@@ -54,6 +54,9 @@ class EnrichedResult:
     spf_dkim_origin: bool = False
     acme_configured: bool = False
     host_header_match: bool = False
+    internetdb_match: bool = False
+    internetdb_hostnames: list[str] = field(default_factory=list)
+    internetdb_open_ports: list[int] = field(default_factory=list)
 
     # Confidence scoring
     confidence: int = 0
@@ -61,7 +64,7 @@ class EnrichedResult:
     status: ResultStatus = ResultStatus.POTENTIAL
 
     # Metadata
-    discovered_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    discovered_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     raw_source_result: SourceResult | None = None
 
     def to_dict(self) -> dict:
@@ -92,6 +95,9 @@ class EnrichedResult:
             "favicon_match": self.favicon_match,
             "js_extracted": self.js_extracted,
             "spf_dkim_origin": self.spf_dkim_origin,
+            "internetdb_match": self.internetdb_match,
+            "internetdb_hostnames": self.internetdb_hostnames,
+            "internetdb_open_ports": self.internetdb_open_ports,
             "confidence": self.confidence,
             "confidence_reasons": self.confidence_reasons,
             "status": self.status.value,
@@ -120,7 +126,7 @@ class ScanReport:
     """Complete scan report for a domain."""
     domain: str
     profile: str = "researcher"
-    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime | None = None
     total_results: int = 0
     unique_ips: int = 0
@@ -131,6 +137,7 @@ class ScanReport:
     ipv4_count: int = 0
     ipv6_count: int = 0
     cloudflare_filtered: int = 0
+    non_routable_filtered: int = 0
     errors: list[str] = field(default_factory=list)
     scan_duration_seconds: float = 0.0
     enrichment_stats: dict = field(default_factory=dict)
@@ -152,7 +159,7 @@ class ScanReport:
 
     def finalize(self) -> None:
         """Finalize the report after scan completion."""
-        self.completed_at = datetime.now(timezone.utc)
+        self.completed_at = datetime.now(UTC)
         self.scan_duration_seconds = (
             (self.completed_at - self.started_at).total_seconds()
             if self.completed_at
@@ -177,6 +184,7 @@ class ScanReport:
                 "ipv4_count": self.ipv4_count,
                 "ipv6_count": self.ipv6_count,
                 "cloudflare_filtered": self.cloudflare_filtered,
+                "non_routable_filtered": self.non_routable_filtered,
                 "sources_used": self.sources_used,
             },
             "enrichment_stats": self.enrichment_stats,

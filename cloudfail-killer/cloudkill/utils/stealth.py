@@ -13,21 +13,12 @@ import asyncio
 import logging
 import random
 
-logger = logging.getLogger(__name__)
+from cloudkill.utils.useragents import USER_AGENTS
 
-# Curated User-Agent strings (same list as engine.py for consistency)
-USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0",
-    "Mozilla/5.0 (X11; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 OPR/116.0.0.0",
-]
+# Non-crypto use (jitter/UA rotation) but seeded from OS entropy anyway
+_system_random = random.SystemRandom()
+
+logger = logging.getLogger(__name__)
 
 
 class StealthManager:
@@ -49,14 +40,14 @@ class StealthManager:
         self.enabled = enabled
         self.min_delay = min_delay
         self.max_delay = max_delay
-        self._ua_index = random.randint(0, len(USER_AGENTS) - 1)
+        self._ua_index = _system_random.randint(0, len(USER_AGENTS) - 1)
 
     async def delay(self) -> None:
         """Apply a random delay if stealth is enabled."""
         if not self.enabled:
             return
 
-        delay = random.uniform(self.min_delay, self.max_delay)
+        delay = _system_random.uniform(self.min_delay, self.max_delay)
         await asyncio.sleep(delay)
         logger.debug("Stealth delay: %.2fs", delay)
 

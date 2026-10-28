@@ -20,10 +20,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from typing import Any, AsyncGenerator
+from collections.abc import AsyncGenerator
+from typing import Any
 
-from cloudkill.sources.base import BaseSource, IPVersion, SourceResult
 from cloudkill import __version__
+from cloudkill.sources.base import BaseSource, IPVersion, SourceResult
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,8 @@ class GitHubDorkSource(BaseSource):
 
     name = "github_dork"
     description = "Code search for exposed infrastructure (GitHub)"
-    requires_api_key = False  # Optional: higher rate limit with GITHUB_TOKEN
+    # GitHub code search REQUIRES authentication (401 otherwise)
+    requires_api_key = True
     supports_ipv6 = True
     default_enabled = True
 
@@ -82,6 +84,10 @@ class GitHubDorkSource(BaseSource):
         super().__init__(**kwargs)
         import os
         self._github_token = os.environ.get("GITHUB_TOKEN", "")
+
+    def is_configured(self) -> bool:
+        """GitHub code search requires a token (GITHUB_TOKEN)."""
+        return bool(self._github_token)
 
     def _get_headers(self) -> dict[str, str]:
         """Get headers with optional GitHub token."""
@@ -155,13 +161,6 @@ class GitHubDorkSource(BaseSource):
             total_files += len(items)
 
             for item in items:
-                file_path = item.get("path", "")
-                repo_name = item.get("repository", {}).get("full_name", "")
-
-                # Extract file content if possible (GitHub API provides truncated)
-                html_url = item.get("html_url", "")
-
-                # Try to get raw content for IP extraction
                 ips = await self._extract_ips_from_file(
                     item, domain, seen_ips
                 )
@@ -246,7 +245,5 @@ class GitHubDorkSource(BaseSource):
             return True
         if parts[0] == 127:
             return True
-        if parts[0] == 0:
-            return True
-        return False
+        return parts[0] == 0
 

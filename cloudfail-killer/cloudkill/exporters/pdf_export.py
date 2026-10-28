@@ -6,14 +6,14 @@ Generate professional PDF scan reports using ReportLab.
 
 from __future__ import annotations
 
-import io
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from cloudkill import __author__, __version__
 from cloudkill.core.models import ScanReport
+from cloudkill.core.validator import safe_output_path
 
 
 def export_pdf(
@@ -37,33 +37,30 @@ def export_pdf(
         Path to the exported file
     """
     from reportlab.lib import colors
+    from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
     from reportlab.lib.pagesizes import A4
-    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
-    from reportlab.lib.units import inch, cm
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import cm, inch
     from reportlab.platypus import (
-        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
-        PageBreak, HRFlowable,
+        HRFlowable,
+        PageBreak,
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableStyle,
     )
-    from reportlab.pdfbase import pdfmetrics
-    from reportlab.pdfbase.ttfonts import TTFont
-    from reportlab.pdfbase.pdfmetrics import registerFontFamily
 
-    output_path = Path(output_path)
+    output_path = safe_output_path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     if output_path.suffix != ".pdf":
         output_path = output_path.with_suffix(".pdf")
 
     # Register fonts — use built-in ReportLab fonts for cross-platform compatibility
-    from reportlab.pdfbase.pdfmetrics import registerFont
-    try:
-        # Try to use Helvetica (built-in) as the primary font
-        _FONT = 'Helvetica'
-        _FONT_BOLD = 'Helvetica-Bold'
-    except Exception:
-        _FONT = 'Helvetica'
-        _FONT_BOLD = 'Helvetica-Bold'
+    # Built-in ReportLab fonts for cross-platform compatibility
+    font = 'Helvetica'
+    font_bold = 'Helvetica-Bold'
 
     # Create document
     title_meta = os.path.splitext(os.path.basename(str(output_path)))[0]
@@ -80,12 +77,9 @@ def export_pdf(
         bottomMargin=2 * cm,
     )
 
-    # Styles
-    styles = getSampleStyleSheet()
-
     cover_title_style = ParagraphStyle(
         name='CoverTitle',
-        fontName=_FONT_BOLD,
+        fontName=font_bold,
         fontSize=36,
         leading=44,
         alignment=TA_CENTER,
@@ -94,7 +88,7 @@ def export_pdf(
 
     cover_subtitle_style = ParagraphStyle(
         name='CoverSubtitle',
-        fontName=_FONT,
+        fontName=font,
         fontSize=18,
         leading=24,
         alignment=TA_CENTER,
@@ -103,7 +97,7 @@ def export_pdf(
 
     cover_info_style = ParagraphStyle(
         name='CoverInfo',
-        fontName=_FONT,
+        fontName=font,
         fontSize=12,
         leading=18,
         alignment=TA_CENTER,
@@ -112,7 +106,7 @@ def export_pdf(
 
     heading1_style = ParagraphStyle(
         name='Heading1Custom',
-        fontName=_FONT_BOLD,
+        fontName=font_bold,
         fontSize=18,
         leading=24,
         alignment=TA_LEFT,
@@ -123,7 +117,7 @@ def export_pdf(
 
     heading2_style = ParagraphStyle(
         name='Heading2Custom',
-        fontName=_FONT_BOLD,
+        fontName=font_bold,
         fontSize=14,
         leading=20,
         alignment=TA_LEFT,
@@ -134,7 +128,7 @@ def export_pdf(
 
     body_style = ParagraphStyle(
         name='BodyCustom',
-        fontName=_FONT,
+        fontName=font,
         fontSize=10,
         leading=16,
         alignment=TA_JUSTIFY,
@@ -143,7 +137,7 @@ def export_pdf(
 
     table_header_style = ParagraphStyle(
         name='TableHeader',
-        fontName=_FONT_BOLD,
+        fontName=font_bold,
         fontSize=9,
         textColor=colors.white,
         alignment=TA_CENTER,
@@ -151,7 +145,7 @@ def export_pdf(
 
     table_cell_style = ParagraphStyle(
         name='TableCell',
-        fontName=_FONT,
+        fontName=font,
         fontSize=8,
         textColor=colors.black,
         alignment=TA_CENTER,
@@ -159,7 +153,7 @@ def export_pdf(
 
     table_cell_left = ParagraphStyle(
         name='TableCellLeft',
-        fontName=_FONT,
+        fontName=font,
         fontSize=8,
         textColor=colors.black,
         alignment=TA_LEFT,
@@ -199,8 +193,8 @@ def export_pdf(
     story.append(Spacer(1, 12))
 
     # Summary metrics table
-    TABLE_HEADER_COLOR = colors.HexColor('#1F4E79')
-    TABLE_ROW_ODD = colors.HexColor('#F5F5F5')
+    table_header_color = colors.HexColor('#1F4E79')
+    table_row_odd = colors.HexColor('#F5F5F5')
 
     summary_data = [
         [Paragraph('<b>Metric</b>', table_header_style),
@@ -229,7 +223,7 @@ def export_pdf(
 
     summary_table = Table(summary_data, colWidths=[3 * inch, 4 * inch])
     style_cmds = [
-        ('BACKGROUND', (0, 0), (-1, 0), TABLE_HEADER_COLOR),
+        ('BACKGROUND', (0, 0), (-1, 0), table_header_color),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -241,7 +235,7 @@ def export_pdf(
     # Add alternating row colors
     for i in range(1, len(summary_data)):
         if i % 2 == 0:
-            style_cmds.append(('BACKGROUND', (0, i), (-1, i), TABLE_ROW_ODD))
+            style_cmds.append(('BACKGROUND', (0, i), (-1, i), table_row_odd))
 
     summary_table.setStyle(TableStyle(style_cmds))
     story.append(Spacer(1, 18))
@@ -286,7 +280,7 @@ def export_pdf(
 
         enrich_table = Table(enrich_data, colWidths=[4 * inch, 3 * inch])
         enrich_cmds = [
-            ('BACKGROUND', (0, 0), (-1, 0), TABLE_HEADER_COLOR),
+            ('BACKGROUND', (0, 0), (-1, 0), table_header_color),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -297,7 +291,7 @@ def export_pdf(
         ]
         for i in range(1, len(enrich_data)):
             if i % 2 == 0:
-                enrich_cmds.append(('BACKGROUND', (0, i), (-1, i), TABLE_ROW_ODD))
+                enrich_cmds.append(('BACKGROUND', (0, i), (-1, i), table_row_odd))
         enrich_table.setStyle(TableStyle(enrich_cmds))
 
         story.append(Spacer(1, 18))
@@ -353,7 +347,7 @@ def export_pdf(
 
         result_table = Table(result_data, colWidths=[1.8*inch, 0.5*inch, 0.9*inch, 0.9*inch, 1*inch, 1.9*inch])
         r_cmds = [
-            ('BACKGROUND', (0, 0), (-1, 0), TABLE_HEADER_COLOR),
+            ('BACKGROUND', (0, 0), (-1, 0), table_header_color),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -364,7 +358,7 @@ def export_pdf(
         ]
         for i in range(1, len(result_data)):
             if i % 2 == 0:
-                r_cmds.append(('BACKGROUND', (0, i), (-1, i), TABLE_ROW_ODD))
+                r_cmds.append(('BACKGROUND', (0, i), (-1, i), table_row_odd))
         result_table.setStyle(TableStyle(r_cmds))
 
         story.append(Spacer(1, 18))
@@ -390,8 +384,8 @@ def export_pdf(
     story.append(HRFlowable(width="100%", thickness=1, color=colors.grey))
     story.append(Spacer(1, 6))
     story.append(Paragraph(
-        f"<i>Generated by CloudKill v{__version__} on {datetime.now(timezone.utc).isoformat()}</i>",
-        ParagraphStyle(name='Footer', fontName=_FONT, fontSize=8,
+        f"<i>Generated by CloudKill v{__version__} on {datetime.now(UTC).isoformat()}</i>",
+        ParagraphStyle(name='Footer', fontName=font, fontSize=8,
                        alignment=TA_CENTER, textColor=colors.grey),
     ))
 

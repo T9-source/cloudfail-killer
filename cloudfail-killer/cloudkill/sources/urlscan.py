@@ -18,10 +18,11 @@ from __future__ import annotations
 
 import logging
 import urllib.parse
-from typing import Any, AsyncGenerator
+from collections.abc import AsyncGenerator
+from typing import Any
 
-from cloudkill.sources.base import BaseSource, SourceResult
 from cloudkill import __version__
+from cloudkill.sources.base import BaseSource, SourceResult
 
 logger = logging.getLogger(__name__)
 

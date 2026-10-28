@@ -7,7 +7,7 @@ Each source collects potential origin IPs from a different data source.
 Sources are organized by priority:
     - CRITICAL: Favicon Hash (Shodan/Censys)
     - HIGH: AlienVault OTX, Wayback CDX, SPF/DKIM, crt.sh
-    - MEDIUM: AnubisDB, URLScan.io, GitHub Dorking
+    - MEDIUM: AnubisDB, URLScan.io, GitHub Dorking, RapidDNS, SubdomainCenter
     - LOW: HackerTarget (50/day), DNSDumpster (scraping), WhoisXML (500 once)
     - REFERENCE: ACME Check (informational only)
 
@@ -126,10 +126,33 @@ def _import_sources() -> None:
     except ImportError as e:
         logger.debug("Failed to import ACMECheckSource: %s", e)
 
+    try:
+        from cloudkill.sources.rapiddns import RapidDNSSource
+        _register_source(RapidDNSSource)
+    except ImportError as e:
+        logger.debug("Failed to import RapidDNSSource: %s", e)
+
+    try:
+        from cloudkill.sources.subdomain_center import SubdomainCenterSource
+        _register_source(SubdomainCenterSource)
+    except ImportError as e:
+        logger.debug("Failed to import SubdomainCenterSource: %s", e)
+
+    # External sources via entry points (community plugins — see
+    # cloudkill/sources/loader.py for the three-step publishing guide)
+    try:
+        from cloudkill.sources.loader import load_plugin_sources
+        for name, cls in load_plugin_sources().items():
+            if name not in _SOURCE_REGISTRY:
+                _register_source(cls)
+    except Exception as e:
+        logger.debug("Plugin source discovery failed: %s", e)
+
 
 def get_all_sources(
     engine: AsyncEngine | None = None,
     ipv6_preference: bool = False,
+    dns_servers: list[str] | None = None,
 ) -> list[BaseSource]:
     """
     Get all registered source plugins.
@@ -137,6 +160,7 @@ def get_all_sources(
     Args:
         engine: AsyncEngine instance for HTTP requests
         ipv6_preference: Whether to prefer IPv6 resolution
+    dns_servers: Optional custom DNS servers for resolution
 
     Returns:
         List of all available source instances
@@ -149,6 +173,7 @@ def get_all_sources(
             source = source_class(
                 engine=engine,
                 ipv6_preference=ipv6_preference,
+                dns_servers=dns_servers,
             )
             sources.append(source)
         except Exception as e:
@@ -179,6 +204,7 @@ def get_enabled_sources(
     all_sources = get_all_sources(
         engine=engine,
         ipv6_preference=config.ipv6_preference,
+        dns_servers=config.dns_servers,
     )
 
     enabled: list[BaseSource] = []
@@ -214,7 +240,7 @@ def get_source_info() -> list[dict[str, str]]:
     _import_sources()
 
     info: list[dict[str, str]] = []
-    for name, cls in _SOURCE_REGISTRY.items():
+    for cls in _SOURCE_REGISTRY.values():
         info.append({
             "name": cls.name,
             "description": cls.description,

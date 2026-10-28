@@ -8,8 +8,8 @@ runs the enrichment pipeline for SSL, ASN, scoring, and dedup.
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import logging
-import time
 from typing import Any
 
 from rich.console import Console
@@ -35,6 +35,31 @@ logger = logging.getLogger(__name__)
 
 console = Console()
 
+# NAT64 Well-Known Prefix (RFC 6052) — synthetic addresses, never real origins
+NAT64_WELL_KNOWN_PREFIX = ipaddress.ip_network("64:ff9b::/96")
+
+
+def is_non_routable_ip(ip: str) -> bool:
+    """Check whether an IP cannot be a public origin server.
+
+    Rejects loopback, RFC1918/RFC4193 private ranges, link-local, reserved,
+    multicast, unspecified, and NAT64 well-known-prefix addresses.
+    """
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return True  # Unparseable IPs can't be origins either
+
+    if addr.is_private or addr.is_loopback or addr.is_link_local:
+        return True
+    if addr.is_reserved or addr.is_multicast or addr.is_unspecified:
+        return True
+    if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped:
+        return True
+    return (
+        isinstance(addr, ipaddress.IPv6Address) and addr in NAT64_WELL_KNOWN_PREFIX
+    )
+
 
 class SourceRunner:
     """
@@ -58,7 +83,9 @@ class SourceRunner:
         self.config = config
         self.engine = engine
         self.cf_checker = cf_checker or CloudflareIPChecker()
-        self.rate_limiter = RateLimiter(default_rate=2.0, default_burst=5)
+        # shared=True: concurrent batch scans draw from ONE budget per
+        # source — 3 concurrent domains never mean 3× the allowed rate.
+        self.rate_limiter = RateLimiter(default_rate=2.0, default_burst=5, shared=True)
         self.stealth = StealthManager(
             enabled=config.stealth_mode.value == "stealth",
             min_delay=config.random_delay_min,
@@ -87,25 +114,26 @@ class SourceRunner:
             ScanReport with all discovered results
         """
         report = ScanReport(domain=domain, profile=self.config.profile.value)
-        start_time = time.monotonic()
 
-        console.print(f"\n[bold]Starting scan for [cyan]{domain}[/cyan][/bold]")
-        console.print(f"  Sources: {len(sources)} configured")
-        console.print(f"  Threads: {self.config.effective_threads}")
-        console.print(f"  Stealth: {self.config.stealth_mode.value}")
-        console.print(f"  Enrichment: {'enabled' if self.enable_enrichment else 'disabled'}")
-        console.print(f"  Active: {'enabled' if self.config.active else 'disabled'}")
-        console.print(f"  Cache: {'enabled' if self.enable_cache else 'disabled'}")
-        console.print()
+        if not self.config.quiet:
+            console.print(f"\n[bold]Starting scan for [cyan]{domain}[/cyan][/bold]")
+            console.print(f"  Sources: {len(sources)} configured")
+            console.print(f"  Threads: {self.config.effective_threads}")
+            console.print(f"  Stealth: {self.config.stealth_mode.value}")
+            console.print(f"  Enrichment: {'enabled' if self.enable_enrichment else 'disabled'}")
+            console.print(f"  Active: {'enabled' if self.config.active else 'disabled'}")
+            console.print(f"  Cache: {'enabled' if self.enable_cache else 'disabled'}")
+            console.print()
 
         # Load Cloudflare IP ranges
         try:
             await self.cf_checker.load_ranges_async()
-            cf_stats = self.cf_checker.get_stats()
-            console.print(
-                f"  [dim]Cloudflare ranges: {cf_stats['v4_ranges']} IPv4 + "
-                f"{cf_stats['v6_ranges']} IPv6 (cached={cf_stats['cached']})[/dim]"
-            )
+            if not self.config.quiet:
+                cf_stats = self.cf_checker.get_stats()
+                console.print(
+                    f"  [dim]Cloudflare ranges: {cf_stats['v4_ranges']} IPv4 + "
+                    f"{cf_stats['v6_ranges']} IPv6 (cached={cf_stats['cached']})[/dim]"
+                )
         except Exception as e:
             logger.warning("Failed to load Cloudflare ranges: %s", e)
             report.errors.append(f"Cloudflare ranges load failed: {e}")
@@ -129,6 +157,7 @@ class SourceRunner:
             TimeElapsedColumn(),
             console=console,
             transient=True,
+            disable=self.config.quiet,
         ) as progress:
             overall_task = progress.add_task("[bold cyan]Collecting data[/]", total=1)
 
@@ -150,6 +179,20 @@ class SourceRunner:
             enriched_results = await self._run_enrichment(
                 enriched_results, domain, report
             )
+
+        # ── Phase B2: Confidence Threshold Filter ──
+        if self.config.min_confidence > 0 and enriched_results:
+            before = len(enriched_results)
+            enriched_results = [
+                r for r in enriched_results
+                if r.confidence >= self.config.min_confidence
+            ]
+            dropped = before - len(enriched_results)
+            if dropped and not self.config.quiet:
+                console.print(
+                    f"  [dim]Confidence filter (--min-confidence "
+                    f"{self.config.min_confidence}): dropped {dropped} result(s)[/dim]"
+                )
 
         # ── Phase C: Active Scanning ──
         if self.config.active and enriched_results:
@@ -199,9 +242,10 @@ class SourceRunner:
         """Run the enrichment pipeline on discovered results."""
         from cloudkill.core.enrichment import EnrichmentPipeline
 
-        console.print()
-        console.rule("[bold cyan]Enrichment Pipeline[/bold cyan]")
-        console.print()
+        if not self.config.quiet:
+            console.print()
+            console.rule("[bold cyan]Enrichment Pipeline[/bold cyan]")
+            console.print()
 
         pipeline = EnrichmentPipeline(
             config=self.config,
@@ -211,10 +255,11 @@ class SourceRunner:
             enable_scoring=True,
             enable_fp_filter=True,
             enable_dedup=True,
+            enable_internetdb=self.config.internetdb_enabled,
         )
 
         stats, enriched = await pipeline.enrich(
-            results, domain, show_progress=True
+            results, domain, show_progress=not self.config.quiet
         )
 
         self._enrichment_stats = stats.to_dict()
@@ -338,10 +383,22 @@ class SourceRunner:
         raw_results: list[SourceResult],
         report: ScanReport,
     ) -> list[EnrichedResult]:
-        """Process raw results: filter CF IPs, create enriched results."""
+        """Process raw results: filter non-routable/CF IPs, enrich results."""
         enriched: list[EnrichedResult] = []
 
         for result in raw_results:
+            # Filter out non-routable addresses (loopback, RFC1918, link-local,
+            # NAT64 well-known prefix, etc.) — an origin behind a CDN is by
+            # definition a public address.
+            if is_non_routable_ip(result.ip):
+                logger.debug(
+                    "Filtered non-routable IP: %s (%s)",
+                    result.ip,
+                    result.subdomain,
+                )
+                report.non_routable_filtered += 1
+                continue
+
             # Filter out Cloudflare IPs
             if self.cf_checker.is_cloudflare_ip(result.ip):
                 logger.debug(
@@ -488,7 +545,7 @@ class SourceRunner:
                 cache.initialize()
                 cache.store_scan(report)
                 logger.info("Scan results cached for %s", report.domain)
-                console.print(f"  [dim]Results cached in SQLite[/dim]")
+                console.print("  [dim]Results cached in SQLite[/dim]")
             finally:
                 cache.close()
         except Exception as e:
@@ -519,6 +576,8 @@ class SourceRunner:
 
     def _print_summary(self, report: ScanReport) -> None:
         """Print the scan summary using Rich."""
+        if self.config.quiet:
+            return
         console.print()
         console.rule("[bold cyan]Scan Complete[/bold cyan]")
         console.print()

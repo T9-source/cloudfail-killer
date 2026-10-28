@@ -7,11 +7,12 @@ Export scan results to JSON format with full detail or summary modes.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
+from cloudkill import __version__
 from cloudkill.core.models import ScanReport
+from cloudkill.core.validator import safe_output_path
 
 
 def export_json(
@@ -32,7 +33,7 @@ def export_json(
     Returns:
         Path to the exported file
     """
-    output_path = Path(output_path)
+    output_path = safe_output_path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     if output_path.suffix != ".json":
@@ -47,9 +48,9 @@ def export_json(
     else:
         data["export_type"] = "full"
 
-    data["exported_at"] = datetime.now(timezone.utc).isoformat()
+    data["exported_at"] = datetime.now(UTC).isoformat()
     data["tool"] = "CloudKill"
-    data["version"] = "0.6.0"
+    data["version"] = __version__
 
     output_path.write_text(
         json.dumps(data, indent=indent, ensure_ascii=False),
@@ -62,7 +63,7 @@ def export_json(
 def export_json_string(report: ScanReport) -> str:
     """Export scan report as JSON string."""
     data = report.to_dict()
-    data["exported_at"] = datetime.now(timezone.utc).isoformat()
+    data["exported_at"] = datetime.now(UTC).isoformat()
     data["tool"] = "CloudKill"
-    data["version"] = "0.6.0"
+    data["version"] = __version__
     return json.dumps(data, indent=2, ensure_ascii=False)

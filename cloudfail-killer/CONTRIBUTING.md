@@ -25,7 +25,7 @@ This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.
 1. Fork the repository on GitHub
 2. Clone your fork locally:
    ```bash
-   git clone https://github.com/T9-source/cloudfail-killer.git
+   git clone https://github.com/smart-jemy/cloudfail-killer.git
    cd cloudfail-killer
    ```
 3. Install in development mode with all optional dependencies:

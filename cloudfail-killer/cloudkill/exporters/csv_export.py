@@ -7,10 +7,11 @@ Export scan results to CSV format for spreadsheet analysis.
 from __future__ import annotations
 
 import csv
-from datetime import datetime
+import io
 from pathlib import Path
 
 from cloudkill.core.models import ScanReport
+from cloudkill.core.validator import safe_output_path
 
 # CSV column headers
 CSV_HEADERS = [
@@ -55,7 +56,7 @@ def export_csv(
     Returns:
         Path to the exported file
     """
-    output_path = Path(output_path)
+    output_path = safe_output_path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     if output_path.suffix != ".csv":
@@ -66,36 +67,37 @@ def export_csv(
     ]
     results.sort(key=lambda r: -r.confidence)
 
-    with open(output_path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
 
-        if include_header:
-            writer.writerow(CSV_HEADERS)
+    if include_header:
+        writer.writerow(CSV_HEADERS)
 
-        for r in results:
-            writer.writerow([
-                r.ip,
-                r.ip_version.value,
-                r.subdomain,
-                r.source,
-                r.port,
-                r.confidence,
-                r.status.value,
-                int(r.ssl_matches),
-                r.ssl_cn or "",
-                r.ssl_issuer or "",
-                r.asn_number or "",
-                r.asn_org or "",
-                r.asn_country or "",
-                r.hosting_provider or "",
-                int(r.is_hosting),
-                int(r.is_cloudflare),
-                int(r.is_historical),
-                r.favicon_hash or "",
-                int(r.host_header_match),
-                r.discovered_at.isoformat() if r.discovered_at else "",
-            ])
+    for r in results:
+        writer.writerow([
+            r.ip,
+            r.ip_version.value,
+            r.subdomain,
+            r.source,
+            r.port,
+            r.confidence,
+            r.status.value,
+            int(r.ssl_matches),
+            r.ssl_cn or "",
+            r.ssl_issuer or "",
+            r.asn_number or "",
+            r.asn_org or "",
+            r.asn_country or "",
+            r.hosting_provider or "",
+            int(r.is_hosting),
+            int(r.is_cloudflare),
+            int(r.is_historical),
+            r.favicon_hash or "",
+            int(r.host_header_match),
+            r.discovered_at.isoformat() if r.discovered_at else "",
+        ])
 
+    output_path.write_text(buffer.getvalue(), encoding="utf-8", newline="")
     return output_path
 
 
@@ -110,7 +112,7 @@ def export_ip_list(report: ScanReport, output_path: Path | str) -> Path:
     Returns:
         Path to the exported file
     """
-    output_path = Path(output_path)
+    output_path = safe_output_path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     unique_ips = sorted({r.ip for r in report.results}, key=lambda ip: ip)

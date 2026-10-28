@@ -5,14 +5,13 @@ Supports multiple profiles and environment variable overrides.
 
 from __future__ import annotations
 
-import os
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import Field, model_validator
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -62,6 +61,7 @@ class ScoringWeights(BaseSettings):
     spf_dkim: int = 15
     asn_match: int = 15
     host_header: int = 10
+    internetdb_match: int = 20
 
 
 class ProxyConfig(BaseSettings):
@@ -96,6 +96,7 @@ class Config(BaseSettings):
     timeout: int = Field(default=30, ge=5, le=120)
     proxy: str | None = None
     ipv6_preference: bool = False
+    dns_servers: list[str] = Field(default_factory=list)
 
     # --- Scan Profile ---
     profile: ScanProfile = ScanProfile.RESEARCHER
@@ -131,6 +132,9 @@ class Config(BaseSettings):
     # --- Confidence Threshold ---
     min_confidence: int = Field(default=0, ge=0, le=100)
 
+    # --- Enrichment toggles ---
+    internetdb_enabled: bool = True
+
     # --- Batch ---
     domains_file: str | None = None
 
@@ -145,10 +149,9 @@ class Config(BaseSettings):
         weights = ScoringWeights()
 
         if profiles_dir.exists():
-            with open(profiles_dir) as f:
-                all_profiles = yaml.safe_load(f)
-                profile_weights = all_profiles.get(profile.value, {})
-                weights = ScoringWeights(**profile_weights)
+            all_profiles = yaml.safe_load(profiles_dir.read_text(encoding="utf-8"))
+            profile_weights = all_profiles.get(profile.value, {})
+            weights = ScoringWeights(**profile_weights)
 
         config = cls(profile=profile, scoring_weights=weights, **overrides)
         return config

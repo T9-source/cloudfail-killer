@@ -19,12 +19,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import ssl
 import socket
-import re
+import ssl
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
+
+from cryptography import x509
 
 logger = logging.getLogger(__name__)
 
@@ -190,7 +191,7 @@ class SSLChecker:
                 # Check self-signed (pre-computed: issuer == subject)
                 info.self_signed = ssl_info.get("_self_signed", False)
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 info.ssl_error = f"Timeout after {self.timeout}s"
             except ConnectionRefusedError:
                 info.ssl_error = "Connection refused"
@@ -245,8 +246,8 @@ class SSLChecker:
         ctx.check_hostname = False  # We connect by IP, not hostname
         ctx.verify_mode = ssl.CERT_NONE  # We want the cert even if invalid
 
-        with socket.create_connection((ip, port), timeout=10) as sock:
-            with ctx.wrap_socket(sock, server_hostname=ip) as ssock:
+        with (socket.create_connection((ip, port), timeout=10) as sock,
+              ctx.wrap_socket(sock, server_hostname=ip) as ssock):
                 # Get binary cert
                 binary_cert = ssock.getpeercert(binary_form=True)
                 # Parse the cert
@@ -278,7 +279,7 @@ class SSLChecker:
                     "notBefore": cert.not_valid_before_utc.isoformat() if cert.not_valid_before_utc else "",
                     "notAfter": cert.not_valid_after_utc.isoformat() if cert.not_valid_after_utc else "",
                     "subjectAltName": san_values,
-                    "_cert_expired": cert.not_valid_after_utc < datetime.now(timezone.utc) if cert.not_valid_after_utc else False,
+                    "_cert_expired": cert.not_valid_after_utc < datetime.now(UTC) if cert.not_valid_after_utc else False,
                     "_self_signed": cert.issuer == cert.subject,
                     "_binary_cert": binary_cert,
                 }

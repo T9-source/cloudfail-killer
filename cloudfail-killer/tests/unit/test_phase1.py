@@ -1,24 +1,16 @@
 """Phase 1 unit tests - Engine, Models, Cloudflare IPs, Rate Limiter, Stealth."""
 
-import asyncio
-import json
 import time
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
 import pytest
-import pytest_asyncio
 
-from cloudkill.config import Config, ScanProfile
-from cloudkill.core.engine import AsyncEngine, RequestStats, USER_AGENTS
+from cloudkill.config import Config
+from cloudkill.core.engine import AsyncEngine, RequestStats
 from cloudkill.core.models import EnrichedResult, ResultStatus, ScanReport
-from cloudkill.core.runner import SourceRunner
-from cloudkill.sources.base import BaseSource, IPVersion, SourceResult
+from cloudkill.sources.base import IPVersion, SourceResult
 from cloudkill.utils.cloudflare_ips import CloudflareIPChecker
 from cloudkill.utils.ratelimit import RateLimiter, TokenBucket
 from cloudkill.utils.stealth import StealthManager
-
 
 # ============================================================
 # SourceResult Tests

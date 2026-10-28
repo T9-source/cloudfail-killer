@@ -16,11 +16,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import urllib.parse
-from typing import Any, AsyncGenerator
+from collections.abc import AsyncGenerator
+from typing import Any
 
-from cloudkill.sources.base import BaseSource, SourceResult
 from cloudkill import __version__
+from cloudkill.sources.base import BaseSource, SourceResult
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +137,7 @@ class CRTShSource(BaseSource):
                     continue
 
                 # Filter: must end with domain
-                if not name.endswith(domain) and not name == domain:
+                if not name.endswith(domain) and name != domain:
                     continue
 
                 # Filter out wildcard entries

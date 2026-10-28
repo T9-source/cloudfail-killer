@@ -5,18 +5,16 @@ Comprehensive unit tests for Active Scanner, Host Header Probe,
 SQLite Cache, Webhooks, and all Exporters.
 """
 
-import asyncio
 import json
-import os
 import sqlite3
 import tempfile
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from cloudkill import __version__
+from cloudkill.cache.sqlite_cache import SQLiteCache
 from cloudkill.core.active_scanner import (
     ActiveProbeResult,
     ActiveScanner,
@@ -27,19 +25,17 @@ from cloudkill.core.host_header import (
     HostHeaderProbe,
     HostHeaderResult,
 )
-from cloudkill.cache.sqlite_cache import SQLiteCache
+from cloudkill.core.models import EnrichedResult, ResultStatus, ScanReport
 from cloudkill.core.webhooks import (
     WebhookSender,
     WebhookType,
 )
-from cloudkill.core.models import EnrichedResult, ResultStatus, ScanReport
-from cloudkill.sources.base import IPVersion, SourceResult
-from cloudkill.exporters.json_export import export_json, export_json_string
 from cloudkill.exporters.csv_export import export_csv, export_ip_list
+from cloudkill.exporters.json_export import export_json, export_json_string
 from cloudkill.exporters.markdown_export import export_markdown
-from cloudkill.exporters.nuclei import export_nuclei_template, export_nuclei_targets
+from cloudkill.exporters.nuclei import export_nuclei_targets, export_nuclei_template
 from cloudkill.exporters.pdf_export import export_pdf
-
+from cloudkill.sources.base import IPVersion
 
 # ═══════════════════════════════════════════════════════════
 # FIXTURES
@@ -121,8 +117,8 @@ def cache_dir(temp_dir):
 class TestVersion:
     """Test version is correctly updated."""
 
-    def test_version_is_0_6_0(self):
-        assert __version__ == "0.6.0"
+    def test_version_is_0_7_0(self):
+        assert __version__ == "0.7.0"
 
 
 # ═══════════════════════════════════════════════════════════
@@ -467,7 +463,7 @@ class TestSQLiteCache:
         cache.store_scan(sample_report)
 
         # All IPs should be new since yesterday
-        since = datetime.now(timezone.utc) - timedelta(days=1)
+        since = datetime.now(UTC) - timedelta(days=1)
         new_ips = cache.get_new_ips_since("example.com", since)
         assert len(new_ips) > 0
         cache.close()
@@ -478,7 +474,7 @@ class TestSQLiteCache:
         cache.store_scan(sample_report)
 
         # No IPs since tomorrow
-        since = datetime.now(timezone.utc) + timedelta(days=1)
+        since = datetime.now(UTC) + timedelta(days=1)
         new_ips = cache.get_new_ips_since("example.com", since)
         assert len(new_ips) == 0
         cache.close()
@@ -583,7 +579,7 @@ class TestJSONExporter:
         data = json.loads(path.read_text())
         assert data["domain"] == "example.com"
         assert data["tool"] == "CloudKill"
-        assert data["version"] == "0.6.0"
+        assert data["version"] == "0.7.0"
         assert data["export_type"] == "full"
         assert len(data["results"]) == 3
 
@@ -753,13 +749,10 @@ class TestExportersInit:
 
     def test_import_all(self):
         from cloudkill.exporters import (
-            export_json,
-            export_json_string,
             export_csv,
-            export_ip_list,
+            export_json,
             export_markdown,
             export_nuclei_template,
-            export_nuclei_targets,
             export_pdf,
         )
         assert callable(export_json)

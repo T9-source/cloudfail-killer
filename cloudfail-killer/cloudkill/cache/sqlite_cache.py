@@ -17,11 +17,11 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
-from cloudkill.core.models import EnrichedResult, ScanReport
+from cloudkill.core.models import ScanReport
 
 logger = logging.getLogger(__name__)
 
@@ -269,7 +269,7 @@ class SQLiteCache:
         conn = self._ensure_connection()
         cursor = conn.cursor()
 
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
 
         for result in report.results:
             # Try to get existing record
@@ -486,7 +486,7 @@ class SQLiteCache:
         conn = self._ensure_connection()
         cursor = conn.cursor()
 
-        cutoff = (datetime.now(timezone.utc) - timedelta(days=self.ttl_days)).isoformat()
+        cutoff = (datetime.now(UTC) - timedelta(days=self.ttl_days)).isoformat()
 
         # Get campaign IDs to delete
         cursor.execute(
@@ -541,7 +541,7 @@ class SQLiteCache:
             campaign_ids,
         )
         cursor.execute(
-            f"DELETE FROM campaigns WHERE domain = ?", (domain,)
+            "DELETE FROM campaigns WHERE domain = ?", (domain,)
         )
         cursor.execute(
             "DELETE FROM ip_discovery WHERE domain = ?", (domain,)

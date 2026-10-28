@@ -349,7 +349,7 @@ class ASNLookup:
         org_lower = org.lower() if org else ""
         isp_lower = isp.lower() if isp else ""
 
-        for provider_key, provider_data in HOSTING_PROVIDERS.items():
+        for provider_data in HOSTING_PROVIDERS.values():
             # Check ASN prefix match
             if asn_str and any(
                 asn_str.startswith(prefix)
@@ -378,8 +378,7 @@ class ASNLookup:
             "IE": "Ireland", "CH": "Switzerland", "AT": "Austria",
             "PL": "Poland", "CZ": "Czech Republic", "RO": "Romania",
             "UA": "Ukraine", "RU": "Russia", "CN": "China",
-            "HK": "Hong Kong", "TW": "Taiwan", "SG": "Singapore",
-            "AU": "Australia", "NZ": "New Zealand", "US": "United States",
+            "HK": "Hong Kong", "TW": "Taiwan", "NZ": "New Zealand",
             "ES": "Spain", "IT": "Italy", "PT": "Portugal",
             "IL": "Israel", "AE": "UAE", "SA": "Saudi Arabia",
             "ZA": "South Africa", "NG": "Nigeria", "KE": "Kenya",

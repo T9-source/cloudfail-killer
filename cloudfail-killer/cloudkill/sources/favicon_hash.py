@@ -19,14 +19,14 @@ References:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
-from typing import Any, AsyncGenerator
+from collections.abc import AsyncGenerator
+from typing import Any
 
+from cloudkill import __version__
 from cloudkill.sources.base import BaseSource, IPVersion, SourceResult
 from cloudkill.utils.cloudflare_ips import CloudflareIPChecker
-from cloudkill import __version__
 
 logger = logging.getLogger(__name__)
 

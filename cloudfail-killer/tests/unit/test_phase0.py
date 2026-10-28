@@ -1,15 +1,15 @@
 """Phase 0 unit tests - Config, Base Source, CLI."""
 
-import pytest
+from collections.abc import AsyncGenerator
+
 from cloudkill import __version__
-from cloudkill.config import Config, ScanProfile, OutputFormat, StealthMode, ScoringWeights
-from cloudkill.sources.base import BaseSource, SourceResult, IPVersion
-from typing import AsyncGenerator
+from cloudkill.config import Config, OutputFormat, ScanProfile, ScoringWeights
+from cloudkill.sources.base import BaseSource, IPVersion, SourceResult
 
 
 class TestPackageMetadata:
     def test_version(self):
-        assert __version__ == "0.6.0"
+        assert __version__ == "0.7.0"
 
     def test_author(self):
         assert __version__  # Package loads correctly

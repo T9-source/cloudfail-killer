@@ -15,10 +15,11 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, AsyncGenerator
+from collections.abc import AsyncGenerator
+from typing import Any
 
-from cloudkill.sources.base import BaseSource, IPVersion, SourceResult
 from cloudkill import __version__
+from cloudkill.sources.base import BaseSource, IPVersion, SourceResult
 
 logger = logging.getLogger(__name__)
 

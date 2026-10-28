@@ -7,12 +7,10 @@ Supports Slack, Discord, and generic webhooks.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
 from urllib.parse import urlparse
 
 import httpx

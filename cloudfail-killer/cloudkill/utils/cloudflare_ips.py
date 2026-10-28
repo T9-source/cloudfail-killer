@@ -7,6 +7,7 @@ Automatically downloads and caches ranges from Cloudflare's official endpoints.
 
 from __future__ import annotations
 
+import asyncio
 import ipaddress
 import json
 import logging
@@ -35,7 +36,19 @@ class CloudflareIPChecker:
         self._v4_networks: list[ipaddress.IPv4Network] = []
         self._v6_networks: list[ipaddress.IPv6Network] = []
         self._loaded = False
-        self._cache_file = cache_dir / "cf_ranges.json" if cache_dir else CACHE_FILE
+        self._cache_file = self._resolve_cache_file(cache_dir)
+
+    @staticmethod
+    def _resolve_cache_file(cache_dir: Path | None) -> Path:
+        """Resolve the cache file path, rejecting traversal components."""
+        if cache_dir is None:
+            return CACHE_FILE
+        if ".." in Path(cache_dir).parts:
+            logger.warning(
+                "Ignoring cache_dir with path traversal components: %s", cache_dir
+            )
+            return CACHE_FILE
+        return Path(cache_dir).expanduser().resolve() / "cf_ranges.json"
 
     @property
     def v4_networks(self) -> list[ipaddress.IPv4Network]:
@@ -136,7 +149,7 @@ class CloudflareIPChecker:
     def load_ranges(self) -> None:
         """Synchronously load Cloudflare IP ranges (uses httpx sync)."""
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             # Already inside a running event loop — create a new thread
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
@@ -163,8 +176,7 @@ class CloudflareIPChecker:
             return False
 
         try:
-            with open(self._cache_file) as f:
-                data = json.load(f)
+            data = json.loads(self._cache_file.read_text(encoding="utf-8"))
 
             # Check cache TTL
             cached_at = data.get("cached_at", 0)
@@ -194,13 +206,14 @@ class CloudflareIPChecker:
         """Save current ranges to local cache file."""
         try:
             self._cache_file.parent.mkdir(parents=True, exist_ok=True)
-            data = {
+            payload = {
                 "cached_at": time.time(),
                 "v4": [str(n) for n in self._v4_networks],
                 "v6": [str(n) for n in self._v6_networks],
             }
-            with open(self._cache_file, "w") as f:
-                json.dump(data, f, indent=2)
+            self._cache_file.write_text(
+                json.dumps(payload, indent=2), encoding="utf-8"
+            )
             logger.debug("Saved Cloudflare ranges to cache")
         except OSError as e:
             logger.debug("Failed to save Cloudflare cache: %s", e)

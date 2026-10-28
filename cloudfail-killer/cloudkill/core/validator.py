@@ -13,8 +13,9 @@ Validates user inputs to prevent security issues:
 from __future__ import annotations
 
 import ipaddress
-import re
 import logging
+import re
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
@@ -158,7 +159,7 @@ class InputValidator:
         try:
             ip_obj = ipaddress.ip_address(ip)
         except ValueError:
-            raise ValidationError("ip", f"Invalid IP address format: {ip}", ip)
+            raise ValidationError("ip", f"Invalid IP address format: {ip}", ip) from None
 
         if not allow_private and (ip_obj.is_private or ip_obj.is_loopback
                                      or ip_obj.is_link_local or ip_obj.is_reserved):
@@ -232,6 +233,18 @@ class InputValidator:
 
         return path
 
+    def safe_output_path(self, output_path: Path | str) -> Path:
+        """
+        Validate an output path and return it as a Path object.
+
+        Convenience wrapper used by exporters to guarantee every file
+        write goes through the same traversal checks.
+
+        Raises:
+            ValidationError: If path is invalid or contains traversal
+        """
+        return Path(self.validate_output_path(str(output_path)))
+
     def validate_webhook_url(self, url: str) -> str:
         """
         Validate a webhook URL.
@@ -253,7 +266,7 @@ class InputValidator:
         try:
             parsed = urlparse(url)
         except Exception:
-            raise ValidationError("webhook_url", f"Invalid URL format: {url}", url)
+            raise ValidationError("webhook_url", f"Invalid URL format: {url}", url) from None
 
         if parsed.scheme not in ("https", "http"):
             raise ValidationError(
@@ -397,6 +410,15 @@ class InputValidator:
 def validate_domain(domain: str) -> str:
     """Quick domain validation (module-level convenience)."""
     return InputValidator().validate_domain(domain)
+
+
+def safe_output_path(output_path: Path | str) -> Path:
+    """Validate and normalize an output path (module-level convenience).
+
+    Raises:
+        ValidationError: If path is invalid or contains traversal
+    """
+    return InputValidator().safe_output_path(output_path)
 
 
 def validate_ip(ip: str, allow_private: bool = False) -> str:

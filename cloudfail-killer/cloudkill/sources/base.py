@@ -7,12 +7,11 @@ Each source collects potential origin IPs from a different data source.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import AsyncGenerator
 
 import aiodns
 
@@ -78,17 +77,22 @@ class BaseSource(ABC):
         self,
         engine: object | None = None,
         ipv6_preference: bool = False,
+        dns_servers: list[str] | None = None,
         **kwargs,
     ) -> None:
         self.engine = engine
         self.ipv6_preference = ipv6_preference
+        self.dns_servers = dns_servers or []
         self._resolver = None
 
     @property
     def resolver(self) -> aiodns.DNSResolver:
-        """Lazy-initialized DNS resolver."""
+        """Lazy-initialized DNS resolver (uses configured nameservers)."""
         if self._resolver is None:
-            self._resolver = aiodns.DNSResolver()
+            if self.dns_servers:
+                self._resolver = aiodns.DNSResolver(nameservers=list(self.dns_servers))
+            else:
+                self._resolver = aiodns.DNSResolver()
         return self._resolver
 
     @abstractmethod
@@ -158,9 +162,9 @@ class BaseSource(ABC):
 
     def is_configured(self) -> bool:
         """Check if this source has required configuration (API keys, etc.)."""
-        if not self.requires_api_key:
-            return True
-        return True  # Override in subclasses with API key requirements
+        # API-key sources must override this to actually check for their key;
+        # the safe default is "not configured" so we never run keyless.
+        return not self.requires_api_key
 
     def __repr__(self) -> str:
         configured = self.is_configured()
