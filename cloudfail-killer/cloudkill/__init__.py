@@ -8,5 +8,5 @@ For authorized security testing only.
 """
 
 __version__ = "0.6.0"
-__author__ = "smart-unknown"
+__author__ = "T9-source"
 __license__ = "MIT"

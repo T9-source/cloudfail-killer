@@ -2,7 +2,7 @@
 
 <p align="center">
   <strong>Advanced Origin IP Discovery for Cloudflare-Protected Domains</strong>
-  <br><sub>Developed by <a href="https://github.com/smart-unknown">smart-unknown</a></sub>
+  <br><sub>Developed by <a href="https://github.com/T9-source">T9-source</a></sub>
 </p>
 
 <p align="center">
@@ -56,7 +56,7 @@ pip install cloudkill
 ### From Source
 
 ```bash
-git clone https://github.com/smart-unknown/cloudfail-killer.git
+git clone https://github.com/T9-source/cloudfail-killer.git
 cd cloudfail-killer
 pip install -e ".[pdf]"
 ```

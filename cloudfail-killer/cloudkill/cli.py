@@ -48,7 +48,7 @@ LEGAL_BANNER = r"""
 ║   ╚═════╝ ╚══════╝ ╚═════╝     ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝   ╚═╝    ║
 ║                                                                            ║
 ║         [bold cyan]ORIGIN IP DISCOVERY TOOL v{version}[/]                    ║
-║                   [dim]Developed by smart-unknown[/dim]                     ║
+║                   [dim]Developed by T9-source[/dim]                     ║
 ║                                                                            ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
 ║                                                                            ║

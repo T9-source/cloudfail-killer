@@ -10,7 +10,7 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
 authors = [
-    { name = "smart-unknown" },
+    { name = "T9-source" },
 ]
 keywords = ["cloudflare", "origin-ip", "reconnaissance", "security", "bug-bounty", "pentest"]
 classifiers = [
@@ -38,11 +38,11 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/smart-unknown/cloudfail-killer"
-Documentation = "https://github.com/smart-unknown/cloudfail-killer#readme"
-Repository = "https://github.com/smart-unknown/cloudfail-killer"
-Issues = "https://github.com/smart-unknown/cloudfail-killer/issues"
-Changelog = "https://github.com/smart-unknown/cloudfail-killer/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/T9-source/cloudfail-killer"
+Documentation = "https://github.com/T9-source/cloudfail-killer#readme"
+Repository = "https://github.com/T9-source/cloudfail-killer"
+Issues = "https://github.com/T9-source/cloudfail-killer/issues"
+Changelog = "https://github.com/T9-source/cloudfail-killer/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [

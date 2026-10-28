@@ -19,11 +19,11 @@ RUN pip install --no-cache-dir --user .
 # === Runtime Stage ===
 FROM python:3.12-slim
 
-LABEL maintainer="smart-unknown"
+LABEL maintainer="T9-source"
 LABEL org.opencontainers.image.title="CloudKill"
 LABEL org.opencontainers.image.description="Advanced origin IP discovery tool for Cloudflare-protected domains"
 LABEL org.opencontainers.image.version="0.6.0"
-LABEL org.opencontainers.image.source="https://github.com/smart-unknown/cloudfail-killer"
+LABEL org.opencontainers.image.source="https://github.com/T9-source/cloudfail-killer"
 LABEL org.opencontainers.image.licenses="MIT"
 
 # Install runtime dependencies
